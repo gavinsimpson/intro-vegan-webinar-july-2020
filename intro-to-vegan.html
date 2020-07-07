@@ -1,0 +1,1882 @@
+<!DOCTYPE html>
+<html lang="" xml:lang="">
+  <head>
+    <title>Introduction to multivariate data analysis using vegan</title>
+    <meta charset="utf-8" />
+    <meta name="author" content="Gavin Simpson" />
+    <meta name="date" content="2020-07-07" />
+    <link href="libs/remark-css/default.css" rel="stylesheet" />
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" type="text/css" />
+    <link rel="stylesheet" href="slides.css" type="text/css" />
+  </head>
+  <body>
+    <textarea id="source">
+class: inverse, middle, left, my-title-slide, title-slide
+
+# Introduction to multivariate data analysis using vegan
+### Gavin Simpson
+### July 7, 2020
+
+---
+
+class: inverse middle center big-subsection
+
+
+
+# Welcome
+
+---
+
+# Logistics
+
+---
+
+# Today's topics
+
+* Diversity
+
+* Dissimilarity
+
+* Ordination
+
+    * Principal Components Analysis (PCA)
+	* Correspondence Analysis (CA)
+	* Principal Coordinates Analysis (PCO or PCoA)
+	* Non-metric Multidimensional Scaling (NMDS)
+
+* Practical tips for working &amp; plotting ordinations using **vegan**
+
+---
+class: inverse middle center big-subsection
+
+# Diversity
+
+---
+
+# Diversity metrics
+
+**vegan** has many functions for computing diversity metrics
+
+.row[
+.col-6[
+Three popular ones are
+
+1. Shannon-Weaver
+
+2. Simpson
+
+3. Inverse Simpson
+
+`\(p_i\)` is proportion of species `\(i\)`
+
+`\(b\)` is the base, usually `\(e\)`
+
+`\(S\)` is number of species (richness)
+  
+]
+.col-6[
+`$$H = - \sum_{i=1}^{S} p_i \log_b p_i$$`
+
+`$$D_1 = 1 - \sum_{i=1}^{S} p_i^2$$`
+
+`$$D_2 = \frac{1}{\sum_{i=1}^{S} p_i^2}$$`
+]
+]
+
+---
+
+# Diversity metrics
+
+
+```r
+data(BCI)
+H &lt;- diversity(BCI)
+head(H)
+```
+
+```
+##        1        2        3        4        5        6 
+## 4.018412 3.848471 3.814060 3.976563 3.969940 3.776575
+```
+
+```r
+D1 &lt;- diversity(BCI, index = "simpson")
+head(D1)
+```
+
+```
+##         1         2         3         4         5         6 
+## 0.9746293 0.9683393 0.9646078 0.9716117 0.9678267 0.9627557
+```
+
+```r
+D2 &lt;- diversity(BCI, index = "invsimpson", base = 2)
+head(D2)
+```
+
+```
+##        1        2        3        4        5        6 
+## 39.41555 31.58488 28.25478 35.22577 31.08166 26.84973
+```
+
+---
+
+# Diversity metrics
+
+## Richness
+
+
+```r
+head(specnumber(BCI)) # species richness
+```
+
+```
+##   1   2   3   4   5   6 
+##  93  84  90  94 101  85
+```
+
+```r
+head(rowSums(BCI &gt; 0)) # simple
+```
+
+```
+##   1   2   3   4   5   6 
+##  93  84  90  94 101  85
+```
+
+## Pielou's Evenness `\(J\)`
+
+
+```r
+J &lt;- H / log(specnumber(BCI))
+head(J)
+```
+
+```
+##         1         2         3         4         5         6 
+## 0.8865579 0.8685692 0.8476046 0.8752597 0.8602030 0.8500724
+```
+
+---
+
+# Diversity &amp;mdash; R&amp;eacute;nyi entropy &amp; Hill's numbers
+
+R&amp;eacute;nyi's *generalized entropy*
+
+`$$H_a = \frac{1}{1-a} \log \sum_{i = 1}^{S} p_i^a$$`
+
+where `\(a\)` is the *order* of the entropy
+
+Corresponding Hill's numbers are
+
+`$$N_a = \exp{(H_a)}$$`
+
+---
+
+# Diversity &amp;mdash; R&amp;eacute;nyi entropy &amp; Hill's numbers
+
+
+```r
+R &lt;- renyi(BCI, scales = 2)
+head(R)
+```
+
+```
+##        1        2        3        4        5        6 
+## 3.674161 3.452678 3.341263 3.561778 3.436618 3.290256
+```
+
+```r
+N2 &lt;- renyi(BCI, scales = 2, hill = TRUE)
+head(N2) # inverse simpson
+```
+
+```
+##        1        2        3        4        5        6 
+## 39.41555 31.58488 28.25478 35.22577 31.08166 26.84973
+```
+
+---
+
+# Diversity &amp;mdash; R&amp;eacute;nyi entropy &amp; Hill's numbers
+
+
+```r
+k &lt;- sample(nrow(BCI), 6)
+R &lt;- renyi(BCI[k,])
+plot(R)
+```
+
+&lt;img src="intro-to-vegan_files/figure-html/diversity-5-1.svg" width="80%" /&gt;
+
+---
+
+# Rarefaction
+
+Species richness increases with sample size (effort)
+
+Rarefaction gives the expected number of species rarefied from `\(N\)` to `\(n\)` individuals
+
+`$$\hat{S}_n = \sum_{i=1}^S (1 - q_i) \; \mathsf{where} \; q_i = \frac{\binom{N - x_i}{n}}{\binom{N}{n}}$$`
+
+`\(x_i\)` is count of species `\(i\)` and `\(\binom{N}{n}\)` is a binomial coefficient &amp;mdash; the number of ways to choose `\(n\)` from `\(N\)`
+
+---
+
+# Rarefaction
+
+.row[
+.col-6[
+
+```r
+rs &lt;- rowSums(BCI)
+quantile(rs)
+```
+
+```
+##    0%   25%   50%   75%  100% 
+## 340.0 409.0 428.0 443.5 601.0
+```
+
+```r
+Srar &lt;- rarefy(BCI, min(rs))
+head(Srar)
+```
+
+```
+##        1        2        3        4        5        6 
+## 84.33992 76.53165 79.11504 82.46571 86.90901 78.50953
+```
+
+```r
+rarecurve(BCI, sample = min(rs))
+```
+]
+
+.col-6[
+![](intro-to-vegan_files/figure-html/rarefy-1.svg)&lt;!-- --&gt;
+]
+]
+
+---
+class: inverse middle center big-subsection
+
+# Dissimilarity
+
+---
+
+# Dissimilarity
+
+.row[
+
+.col-6[
+
+![](intro-to-vegan_files/figure-html/dissimilarity-1.svg)&lt;!-- --&gt;
+]
+
+.col-6[
+
+`$$d_{ij} = \sqrt{\sum\limits^m_{k=1}(x_{ik} - x_{jk})^2}$$`
+
+`$$d_{ij} = \sum\limits^m_{k=1}|x_{ik} - x_{jk}|$$`
+
+`$$d_{ij} = \frac{\sum\limits^m_{k=1}|x_{ik} - x_{jk}|}{\sum\limits^m_{k=1}(x_{ik} + x_{jk})}$$`
+]
+]
+
+---
+
+# Dissimilarity
+
+Two key functions
+
+1. `vegdist()`
+2. `decostand()`
+
+
+```r
+data(varespec)
+
+euc_dij &lt;- vegdist(varespec, method = "euclidean")
+
+bc_dij &lt;- vegdist(varespec)
+
+hell_dij &lt;- vegdist(decostand(varespec, method = "hellinger"),
+                    method = "euclidean")
+```
+
+---
+class: inverse middle center big-subsection
+
+# Ordination
+
+---
+class: inverse middle center big-subsection
+
+# ordnung
+
+???
+
+The word "ordination" comes from the German word "ordnung"
+
+---
+
+# Ordination
+
+Putting things in order is exactly what we we do in ordination
+
+* we arrange our samples along gradients by fitting lines and planes through the data that describe the main patterns in those data
+
+* we map data to lower dimensions reflecting how similar the samples are to one another in terms of the variables measured
+
+Three families of models
+
+1. Linear
+2. Unimodal
+3. Distance-based
+
+---
+class: inverse middle center big-subsection
+
+# Unconstrained
+
+---
+
+# Unconstrained
+
+What is .text-higlight[unconstrained]?
+
+First we look for major variation, then relate it to environmental variation
+
+vs. *constrained* ordination, where we only want to see what can be explained by environmental variables of interest
+
+*How well do we explain the main patterns in the species data*? vs *How large are the patterns we can expain with the measured data*?
+
+---
+
+# Ordination methods
+
+Principal Components Analysis (PCA) is a linear method &amp;mdash; most useful for environmental data or sometimes with species data and short gradients
+
+Correspondence Analysis (CA) is a unimodal method &amp;mdash; most useful for species data, especially where non-linear responses are observed
+
+Principal Coordinates Analysis (PCO) and Non-metric Multidimensional Scaling (NMDS) &amp;mdash; can be used for any kind of data
+
+---
+class: inverse middle center huge-subsection
+
+# PCA
+
+---
+
+# Principal Components Analysis
+
+Instead of doing many regressions, do one with all the responses
+
+No explanatory variables &amp;mdash; uncover latent, underlying gradients
+
+PCA fits a line through our cloud of data in such a way that it maximises the variance in the data captured by that line (i.e.~minimises the distance between the fitted line and the observations)
+
+Fit a second line to form a plane, and so on, until we have one PCA axis for every dimension of the data
+
+Each of these subsequent axes is uncorrelated with previous axes &amp;mdash; they are .text-highlight[orthogonal] &amp;mdash; the variance each axis explains is uncorrelated
+
+---
+
+# Principal Components Analysis
+
+.center-fig[
+![:scale 75% © HappyWaldo CC BY-SA](./resources/Sherrin_footy.jpg)
+]
+
+---
+
+# Principal Components Analysis
+
+
+
+
+
+.row[
+.col-4[
+![](intro-to-vegan_files/figure-html/pc-anim-plt1-1.svg)&lt;!-- --&gt;
+]
+.col-4[
+![](intro-to-vegan_files/figure-html/pc-anim-plt2-1.svg)&lt;!-- --&gt;
+]
+.col-4[
+![](intro-to-vegan_files/figure-html/pc-anim-plt3-1.svg)&lt;!-- --&gt;
+]
+]
+
+
+---
+
+# Principal Components Analysis
+
+
+.center[![:scale 64%](resources/pca-anim.gif)]
+
+---
+
+# Load vegan
+
+**vegan** is an add-on package
+
+
+```r
+## install.packages("vegan") # Only need if you've never installed before
+library("vegan")
+data(varespec)
+data(varechem)
+```
+
+**vegan** comes with a number of data sets which we'll use to get started
+
+---
+
+# Vegetation in lichen pastures &amp;mdash; species
+
+
+```r
+class(varespec)
+```
+
+```
+## [1] "data.frame"
+```
+
+```r
+dim(varespec)                               # number of samples, species
+```
+
+```
+## [1] 24 44
+```
+
+```r
+head(varespec[,1:6], n = 5)
+```
+
+```
+##    Callvulg Empenigr Rhodtome Vaccmyrt Vaccviti Pinusylv
+## 18     0.55    11.13     0.00     0.00    17.80     0.07
+## 15     0.67     0.17     0.00     0.35    12.13     0.12
+## 24     0.10     1.55     0.00     0.00    13.47     0.25
+## 27     0.00    15.13     2.42     5.92    15.97     0.00
+## 23     0.00    12.68     0.00     0.00    23.73     0.03
+```
+
+`varespec` is a data frame
+
+* *Variables* are the columns (here the species)
+* *Observations* are the rows (the samples, sites, etc)
+
+???
+
+Data are cover values of 44 understorey species recorded at 24 locations in lichen pastures within dry *Pinus sylvestris* forests
+
+This arrangement is back-to-front if you are used to OTU like data
+
+---
+
+# Vegetation in lichen pastures &amp;mdash; chemistry
+
+Also have associated soil physical and chemical measurements at the 24 sites
+
+
+```r
+head(varechem)
+```
+
+```
+##       N    P     K    Ca    Mg    S    Al   Fe    Mn   Zn  Mo Baresoil Humdepth
+## 18 19.8 42.1 139.9 519.4  90.0 32.3  39.0 40.9  58.1  4.5 0.3     43.9      2.2
+## 15 13.4 39.1 167.3 356.7  70.7 35.2  88.1 39.0  52.4  5.4 0.3     23.6      2.2
+## 24 20.2 67.7 207.1 973.3 209.1 58.1 138.0 35.4  32.1 16.8 0.8     21.2      2.0
+## 27 20.6 60.8 233.7 834.0 127.2 40.7  15.4  4.4 132.0 10.7 0.2     18.7      2.9
+## 23 23.8 54.5 180.6 777.0 125.8 39.5  24.2  3.0  50.1  6.6 0.3     46.0      3.0
+## 19 22.8 40.9 171.4 691.8 151.4 40.8 104.8 17.6  43.6  9.1 0.4     40.5      3.8
+##     pH
+## 18 2.7
+## 15 2.8
+## 24 3.0
+## 27 2.8
+## 23 2.7
+## 19 2.7
+```
+
+???
+
+`Baresoil` is the estimated cover of bare soil
+`Humdepth` is the depth of humus layer
+
+---
+
+# Vegetation in lichen pastures &amp;mdash; PCA
+
+PCA is fitted using `rda()`
+
+* Provide a data frame of observations on one or more variables
+* To scale all variables to be &amp;mu; = 0, &amp;sigma;&lt;sup&gt;2&lt;/sup&gt; = 1: `scale = TRUE`
+
+
+```r
+pca &lt;- rda(decostand(varespec, method = "hellinger"), scale = TRUE)
+pca
+```
+
+```
+## Call: rda(X = decostand(varespec, method = "hellinger"), scale = TRUE)
+## 
+##               Inertia Rank
+## Total              44     
+## Unconstrained      44   23
+## Inertia is correlations 
+## 
+## Eigenvalues for unconstrained axes:
+##   PC1   PC2   PC3   PC4   PC5   PC6   PC7   PC8 
+## 8.603 5.134 4.576 3.714 3.245 2.779 2.626 2.221 
+## (Showing 8 of 23 unconstrained eigenvalues)
+```
+
+---
+
+# Vegetation in lichen pastures &amp;mdash; PCA
+
+PCA of the covariance matrix &amp;mdash; default is `scale = FALSE`
+
+
+```r
+rda(decostand(varespec, method = "hellinger"), scale = FALSE)
+```
+
+```
+## Call: rda(X = decostand(varespec, method = "hellinger"), scale = FALSE)
+## 
+##               Inertia Rank
+## Total          0.3647     
+## Unconstrained  0.3647   23
+## Inertia is variance 
+## 
+## Eigenvalues for unconstrained axes:
+##     PC1     PC2     PC3     PC4     PC5     PC6     PC7     PC8 
+## 0.14586 0.07908 0.02866 0.02446 0.02209 0.01263 0.01179 0.00873 
+## (Showing 8 of 23 unconstrained eigenvalues)
+```
+
+How **vegan** scales the eigenvalues is different to *Canoco*
+
+---
+
+
+# Vegetation in lichen pastures &amp;mdash; PCA
+
+
+```r
+biplot(pca, scaling = "symmetric")
+```
+
+&lt;img src="intro-to-vegan_files/figure-html/vare-pca-1c-1.svg" width="95%" /&gt;
+
+---
+
+# PCA biplots
+
+.row[
+.col-6[
+* Sample (species) points plotted close together have similar species compositions (occur together)
+* In PCA, species scores often drawn as arrows &amp;mdash; point in direction of increasing abundance
+* Species arrows with small angles to an axis are highly correlated with that axis
+]
+.col-6[
+
+
+```r
+biplot(pca, scaling = "symmetric")
+```
+
+![](intro-to-vegan_files/figure-html/vare-pca-2-1.svg)&lt;!-- --&gt;
+]
+]
+
+---
+
+# Eigenvalues &amp;lambda;
+
+.row[
+.col-6[
+
+Eigenvalues are the amount of variance (inertia) explained by each axis
+
+
+```r
+head(eigenvals(pca), 5)
+```
+
+```
+##      PC1      PC2      PC3      PC4      PC5 
+## 8.602826 5.133623 4.575623 3.713926 3.244925
+```
+]
+.col-6[
+
+```r
+screeplot(pca, bstick = TRUE, type = "l",
+          main = NULL)
+```
+
+![](intro-to-vegan_files/figure-html/vare-pca-4-1.svg)&lt;!-- --&gt;
+]
+]
+
+---
+
+# Eigenvalues &amp;lambda;
+
+The `summary()` method provides additional information
+
+
+```r
+summary(eigenvals(pca))
+```
+
+```
+## Importance of components:
+##                          PC1    PC2    PC3     PC4     PC5     PC6     PC7
+## Eigenvalue            8.6028 5.1336 4.5756 3.71393 3.24492 2.77919 2.62560
+## Proportion Explained  0.1955 0.1167 0.1040 0.08441 0.07375 0.06316 0.05967
+## Cumulative Proportion 0.1955 0.3122 0.4162 0.50059 0.57434 0.63750 0.69718
+##                           PC8     PC9    PC10    PC11    PC12    PC13    PC14
+## Eigenvalue            2.22100 1.67857 1.65627 1.30432 1.03472 0.91190 0.87323
+## Proportion Explained  0.05048 0.03815 0.03764 0.02964 0.02352 0.02073 0.01985
+## Cumulative Proportion 0.74765 0.78580 0.82344 0.85309 0.87660 0.89733 0.91718
+##                         PC15   PC16    PC17    PC18     PC19     PC20     PC21
+## Eigenvalue            0.7612 0.6336 0.52021 0.51641 0.408841 0.267175 0.206336
+## Proportion Explained  0.0173 0.0144 0.01182 0.01174 0.009292 0.006072 0.004689
+## Cumulative Proportion 0.9345 0.9489 0.96070 0.97243 0.981727 0.987799 0.992488
+##                           PC22     PC23
+## Eigenvalue            0.179715 0.150795
+## Proportion Explained  0.004084 0.003427
+## Cumulative Proportion 0.996573 1.000000
+```
+
+---
+class: inverse middle center subsection
+
+# Correspondence Analysis
+
+---
+
+# Correspondence Analysis
+
+Correspondence analysis (CA) is very similar to PCA &amp;mdash; a weighted form of PCA
+
+The row and column sums are used as weights and this has the effect of turning the analysis into one of relative composition
+
+The weighting is a trick to get linear-based software to fit non-linear responses
+
+These nonlinear response are assumed to unimodal Gaussian curves, all with equal height and tolerance widths, and equally spaced optima
+
+---
+
+# Correspondence Analysis
+
+![](intro-to-vegan_files/figure-html/unnamed-chunk-1-1.svg)&lt;!-- --&gt;
+
+---
+
+# Correspondence Analysis
+
+Correspondence analysis (CA) is very similar to PCA &amp;mdash; a weighted form of PCA
+
+The row and column sums are used as weights and this has the effect of turning the analysis into one of relative composition
+
+The weighting is a trick to get linear-based software to fit non-linear responses
+
+These nonlinear response are assumed to unimodal Gaussian curves, all with equal height and tolerance widths, and equally spaced optima
+
+So, not very realistic, but it is surprisingly robust at times to violation of this assumption
+
+---
+
+# Vegetation in lichen pastures &amp;mdash; CA biplots
+
+.row[
+.col-7[
+- Have two sets of scores
+    1. Species scores
+    2. Site scores
+- Sample (species) points plotted close together have similar species compositions (occur together)
+- In CA, species scores drawn as points &amp;mdash; this is the fitted optima along the gradients
+- Abundance of species declines in concentric circles away from the optima
+]
+.col-5[
+
+
+```r
+ca &lt;- cca(varespec)
+plot(ca)
+```
+
+![](intro-to-vegan_files/figure-html/vare-ca-1-1.svg)&lt;!-- --&gt;
+
+]
+]
+
+---
+
+# Vegetation in lichen pastures &amp;mdash; CA biplots
+
+- Species scores plotted as weighted averages of site scores, or
+- Site scores plotted as weighted averages of species scores, or
+- A symmetric plot
+
+![](intro-to-vegan_files/figure-html/vare-ca-2-1.svg)&lt;!-- --&gt;
+
+---
+class: inverse middle center huge-subsection
+
+# vegan
+
+---
+
+# Vegan basics
+
+- The majority of vegan functions work with a single vector, or more commonly an entire data frame
+- This data frame may contain the species abundances
+- Where subsidiary data is used/required, these two are supplied as data frames
+- For example; the environmental constraints in a CCA
+- It is not a problem if you have all your data in a single file/object; just subset it into two data frames after reading it into R
+
+
+```r
+spp &lt;- allMyData[, 1:20] ## columns 1-20 contain the species data
+env &lt;- allMyData[, 21:26] ## columns 21-26 contain the environmental data
+```
+
+---
+&lt;!--
+# Simple vegan usage
+
+First we start with a simple correspondence analysis (CA) to illustrate the basic features
+
+Here I am using one of the in-built data sets on lichen pastures
+
+For various reasons to fit a CA we use the `cca()` function
+
+Store the fitted CA in `ca1` and print it to view the results
+
+
+```r
+ca1 &lt;- cca(varespec)
+ca1
+```
+
+```
+## Call: cca(X = varespec)
+## 
+##               Inertia Rank
+## Total           2.083     
+## Unconstrained   2.083   23
+## Inertia is scaled Chi-square 
+## 
+## Eigenvalues for unconstrained axes:
+##    CA1    CA2    CA3    CA4    CA5    CA6    CA7    CA8 
+## 0.5249 0.3568 0.2344 0.1955 0.1776 0.1216 0.1155 0.0889 
+## (Showing 8 of 23 unconstrained eigenvalues)
+```
+
+--- 
+--&gt;
+
+# `scores()` &amp; `scaling`
+
+- When we draw the results of many ordinations we display 2 or more sets of data
+- Can't display all of these and maintain relationships between the scores
+- Solution; scale one set of scores relative to the other
+- Controlled via the `scaling` argument
+
+---
+
+# Scaling
+
+How we scale scores is controlled via the `scaling` argument
+
+- `scaling = 1` &amp;mdash; Focus on sites, scale site scores by `\(\lambda_i\)`
+- `scaling = 2` &amp;mdash; Focus on species, scale species scores by `\(\lambda_i\)`
+- `scaling = 3` &amp;mdash; Symmetric scaling, scale both scores by `\(\sqrt{\lambda_i}\)`
+- `scaling = -1` &amp;mdash; As above, but for `rda()` get correlation scores
+- `scaling = -2` &amp;mdash; for `cca()` multiply results by `\(\sqrt{(1/(1-\lambda_i))}\)`
+- `scaling = -3` &amp;mdash; this is Hill's scaling
+- `scaling &lt; 0` &amp;mdash; For `rda()` divide species scores by species' `\(\sigma\)`
+- `scaling = 0` &amp;mdash; raw scores
+
+---
+
+# No one can remember all that&amp;hellip;
+
+Use the text names instead:
+
+* `scaling = "none"` means `scaling = 0`
+* `scaling = "sites"` means `scaling = 1`
+* `scaling = "species"` means `scaling = 3`
+* `scaling = "symmetric"` means `scaling = 3`
+
+For PCA (`rda()`) use `correlation = TRUE` to get the correlation scores (negative scaling)
+
+For CA (`cca()`)  use `hill = TRUE` to get Hill's scaling scores (negative scaling)
+
+---
+
+# Extractor functions &amp;mdash; scores()
+
+Don't rummage around in the objects returned by *vegan* functions &amp;mdash; unless you know what you're doing
+
+
+```r
+head(scores(pca, choices = 1:3, display = "species", scaling = "species", correlation = TRUE))
+```
+
+```
+##                 PC1        PC2         PC3
+## Callvulg -0.2896130  0.1338259  0.18460432
+## Empenigr  0.5732742  0.2057975 -0.24778607
+## Rhodtome  0.9262883 -0.2248872 -0.28211297
+## Vaccmyrt  0.8558251 -0.2508985 -0.33438598
+## Vaccviti  0.6800662  0.5703573  0.02059066
+## Pinusylv  0.2530739  0.2280044  0.80172865
+```
+
+---
+
+# Basic ordination plots &amp;mdash; plot()
+
+.row[
+.col-6[
+- `choices = 1:2` &amp;mdash; which axes?
+- `scaling = 3` &amp;mdash; scaling to use
+- `display = c("sites","species")` &amp;mdash; which scores (default is both)
+- `type = "text"` &amp;mdash; display scores using labels or points (`"points"`)
+- Other graphics arguments can be supplied but apply to all scores
+]
+
+.col-6[
+
+
+```r
+plot(ca1, choices = c(1,3),
+     scaling = "symmetric")
+```
+
+![](intro-to-vegan_files/figure-html/ca_biplot-1.svg)&lt;!-- --&gt;
+
+]
+]
+
+---
+class: inverse center middle subsection
+
+# Distance-based methods
+
+---
+class: inverse center middle huge-subsection
+
+# PCO
+
+---
+
+# Principal Coordinates Analysis
+
+PCoA (or PCO, or **metric** multidimensional scaling (MDS)) finds a mapping to Euclidean space of `\(n\)` objects using the `\(n\)` by `\(n\)` matrix of dissimilarities `\(d_{ij}\)`
+
+PCoA is an eigen decomposition like PCA
+
+* first axis is the best 1D mapping of the dissimilarities
+* subsequent axes are orthogonal to the first, but improve the mapping by smaller &amp; smaller amounts
+
+Can use *any* dissimilarity coefficient (with a big **but**)
+
+PCoA on a Euclidean distance matrix &amp;#8680; PCA (without species scores)
+
+---
+
+# Principal Coordinates Analysis
+
+The big **but** is that not all dissimilarity coefficients can be represented in Euclidean space
+
+If dissimilarity matrix is metric we're OK &amp;mdash; *usually*
+
+If not metric, get negative eigenvalues &amp;#8680; correspond to distances in imaginary space
+
+Distortion can be measured as
+
+`$$\frac{\sum \left | \lambda^{-} \right |}{\sum \left | \lambda \right |}$$`
+
+---
+
+# PCoA &amp;mdash; correcting negative &amp;lambda;
+
+1. Could square root transform the `\(d_{ij}\)`
+
+2. Add a sufficiently large constant to `\(d_{ij}\)` or `\(d_{ij}^2\)`
+
+    * **Lingoes** method: `\(\hat{d}_{ij} = \sqrt{d_{ij}^2 + 2c_1}\)` for `\(i \neq j\)`
+
+        where `\(c_1\)` is `\(\mathsf{max} \left ( \left | \lambda_i^{-} \right | \right )\)`
+
+    * **Cailliez** method: `\(\hat{d}_{ij} = d_{ij} + c_2\)` for `\(i \neq j\)`
+	
+	    where `\(c_2\)` is computed from a special matrix formed during the PCoA calculations
+
+---
+
+# Principal Coordinates Analysis
+
+Default dissimilarity in `vegdist()` is Bray-Curtis
+
+
+```r
+pco1 &lt;- wcmdscale(vegdist(varespec), eig = TRUE)
+round(eigenvals(pco1), 3)
+```
+
+```
+##  [1]  1.755  1.133  0.443  0.370  0.245  0.196  0.175  0.128  0.097  0.076
+## [11]  0.064  0.058  0.039  0.017  0.005  0.000 -0.006 -0.013 -0.025 -0.038
+## [21] -0.048 -0.054 -0.074
+```
+
+```r
+pco2 &lt;- wcmdscale(vegdist(varespec), eig = TRUE, add = "lingoes")
+round(eigenvals(pco2), 3)
+```
+
+```
+##  [1] 1.829 1.208 0.517 0.444 0.319 0.270 0.249 0.203 0.171 0.150 0.138 0.132
+## [13] 0.114 0.091 0.079 0.074 0.068 0.061 0.049 0.037 0.026 0.020
+```
+
+*Note there's one fewer dimensions after correction*
+
+---
+
+# Principal Coordinates Analysis
+
+Can plot the PCoA using `plot()` and add *species scores*
+
+.row[
+.col-6[
+
+```r
+pco &lt;- wcmdscale(vegdist(varespec), eig = TRUE)
+
+## plot
+plot(pco)
+
+## get PCoA scores
+scrs &lt;- scores(pco, choices = 1:2)
+
+## take WA of PCoA scores,
+## weight by abundance
+spp_scrs &lt;- wascores(scrs, varespec,
+                     expand = FALSE)
+
+## add
+points(spp_scrs, col = "red", pch = 19)
+```
+]
+.col-6[
+![](intro-to-vegan_files/figure-html/pco-example-2-1.svg)&lt;!-- --&gt;
+]
+]
+
+---
+class: inverse center middle huge-subsection
+
+# NMDS
+
+---
+
+# Non-Metric Multidimensional Scaling
+
+NMDS find a low-dimensional mapping that preserves as best as possible the .text-highlight[rank order] of the original dissimilarities `\(d_{ij}\)`
+
+Solution with minimal `stress` is sought; a measure of how well the NMDS mapping fits the `\(d_{ij}\)`
+
+Stress is sum of squared residuals of monotonic regression between distances in NMDS space, `\(d^{*}_{ij}\)`, &amp; `\(d_{ij}\)`
+
+Non-linear regression can cope with non-linear responses in species data
+
+Iterative solution; *convergence is not guaranteed*
+
+Must solve separately different dimensionality solutions
+
+---
+
+# Non-Metric Multidimensional Scaling
+
+- Use an appropriate dissimilarity metric that gives good gradient separation `rankindex()`, e.g Bray-Curtis, Jaccard, Kulczynski
+- Wisconsin transformation useful; Standardize species to equal maxima, then sites to equal totals `wisconsin()`
+- Use many random starts and look at the fits with lowest stress (`try` &amp; `trymax`
+- Only conclude solution reached if lowest stress solutions are similar (Procrustes rotation)
+- Fit NMDS for 1, 2, 3, &amp;hellip; dimensions; stop after a sudden drop in stress observed in a screeplot
+- NMDS solutions can be rotated ; common to rotate to PCs
+- Also scale axes in half-change units
+
+???
+
+Half-change units: samples separated by a distance of 1 correspond, on average, to a 50% turnover in composition
+
+---
+
+# NMDS in vegan
+
+**vegan** implements all these ideas via the `metaMDS()` wrapper
+
+
+```r
+data(dune)
+set.seed(10)
+(sol &lt;- metaMDS(dune, trace = FALSE))
+```
+
+```
+## 
+## Call:
+## metaMDS(comm = dune, trace = FALSE) 
+## 
+## global Multidimensional Scaling using monoMDS
+## 
+## Data:     dune 
+## Distance: bray 
+## 
+## Dimensions: 2 
+## Stress:     0.1183186 
+## Stress type 1, weak ties
+## Two convergent solutions found after 20 tries
+## Scaling: centring, PC rotation, halfchange scaling 
+## Species: expanded scores based on 'dune'
+```
+
+---
+
+# NMDS in vegan
+
+If no convergent solutions, continue iterations from previous best solution
+
+
+```r
+(sol &lt;- metaMDS(dune, previous.best = sol, trace = FALSE))
+```
+
+```
+## 
+## Call:
+## metaMDS(comm = dune, trace = FALSE, previous.best = sol) 
+## 
+## global Multidimensional Scaling using monoMDS
+## 
+## Data:     dune 
+## Distance: bray 
+## 
+## Dimensions: 2 
+## Stress:     0.1183186 
+## Stress type 1, weak ties
+## Two convergent solutions found after 40 tries
+## Scaling: centring, PC rotation, halfchange scaling 
+## Species: expanded scores based on 'dune'
+```
+
+---
+
+# NMDS in vegan
+
+
+```r
+layout(matrix(1:2, ncol = 2))
+plot(sol, main = "Dune NMDS plot"); stressplot(sol, main = "Shepard plot")
+layout(1)
+```
+![](intro-to-vegan_files/figure-html/nmds3-1.svg)&lt;!-- --&gt;
+
+???
+
+Shepard diagram which is a plot of ordination distances and monotone or linear fit line against original dissimilarities.  In addition, it displays two correlation-like statistics on the goodness of fit in the graph. The nonmetric fit is based on stress S and defined as R2 = 1-S*S. The “linear fit” is the squared correlation between fitted values and ordination distances. For monoMDS, the “linear fit” and R2 from “stress type 2” are equal.
+
+---
+
+# Checking dimensionality *k*
+
+Fit NMDS solutions for a number of `k`
+
+.row[
+.col-6[
+
+```r
+k_vec &lt;- 1:10
+stress &lt;- numeric(length(k_vec))
+dune_dij &lt;- metaMDSdist(dune, trace = FALSE)
+set.seed(25)
+for(i in seq_along(k_vec)) {
+    sol &lt;- metaMDSiter(dune_dij, k = i,
+                       trace = FALSE)
+    stress[i] &lt;- sol$stress
+}
+```
+
+Need to use the helper functions to do this right
+
+
+```r
+plot(k_vec, stress, type = "b", ylab = "Stress",
+     xlab = "Dimensions")
+```
+
+]
+.col-6[
+![](intro-to-vegan_files/figure-html/plot_nmds-scree-1.svg)&lt;!-- --&gt;
+]
+]
+
+---
+
+# NMDS &amp;mdash; Goodness of fit
+
+A goodness of fit statistic `\(g_i\)` can be computed for the observations; defined such that `\(\sum_{i=1}^{n} g_i^2 = S^2\)`
+
+
+```r
+(g &lt;- goodness(sol))
+```
+
+```
+##  [1] 0.0008361609 0.0014394566 0.0005945637 0.0010454517 0.0008156066
+##  [6] 0.0006672203 0.0009733386 0.0007155527 0.0007025901 0.0009106235
+## [11] 0.0003954246 0.0004922674 0.0008689129 0.0011325675 0.0013023369
+## [16] 0.0006979583 0.0008041807 0.0005340019 0.0008838303 0.0005936073
+```
+
+```r
+sum(g^2)
+```
+
+```
+## [1] 1.479537e-05
+```
+
+```r
+sol$stress^2
+```
+
+```
+## [1] 1.479537e-05
+```
+
+```r
+all.equal(sqrt(sum(g^2)), sol$stress)
+```
+
+```
+## [1] TRUE
+```
+
+---
+
+# Supplementary data
+
+If we have other data collected at the same sites, say about the environment, we can investigate relationships between the main components of variation in species composition and those environmental variables
+
+Two main **vegan** functions for this
+
+1. `envfit()` and helpers `vectorfit()` and `factorfit()`
+
+2. `ordisurf()`
+
+`envfit()` fits vectors or planes while `ordisurf()` fits smooth, potentially non-linear surfaces
+
+---
+
+# Vector fitting
+
+`envfit()` fits vectors using a regression
+
+`$$\hat{y_i} = \beta_1 x_{1i} + \beta_2 x_{2i} + \cdots \beta_p x_{pi}$$`
+
+where:
+
+* `\(x_{pi}\)` are the site scores for the `\(i\)`&lt;sup&gt;th&lt;/sup&gt; site on axis 1, 2, &amp;hellip;, `\(p\)`
+* Usually `\(p = 2\)` as we're fitting vectors into 2D ordination plots
+* `\(y_i\)` is the value of the environment at the `\(i\)`&lt;sup&gt;th&lt;/sup&gt; site
+* `envfit()` can handle a matrix of environmental variables
+
+*Note no intercept; internally center `\(\boldsymbol{y}\)` and `\(\boldsymbol{x_p}\)`*
+
+For categorical `\(\boldsymbol{y}\)`, `envfit()` finds averages of scores for each level of the category
+
+---
+
+# Vector fitting
+
+.row[
+.col-6[
+
+`envfit()` with formula
+
+
+```r
+set.seed(42)
+ev &lt;- envfit(pca ~ ., data = varechem,
+             choices = 1:2,
+             scaling = "symmetric",
+             permutations = 1000)
+ev
+```
+
+or data frames
+
+
+```r
+envfit(pca, varechem,
+       choices = 1:2, scaling = "symmetric",
+       permutations = 1000)
+```
+]
+
+.col-6[
+
+```
+## 
+## ***VECTORS
+## 
+##               PC1      PC2     r2   Pr(&gt;r)    
+## N        -0.80597 -0.59196 0.0384 0.676324    
+## P         0.78221 -0.62301 0.0335 0.696304    
+## K         0.94909 -0.31501 0.0394 0.638362    
+## Ca        0.87606  0.48220 0.1607 0.153846    
+## Mg        0.83079  0.55658 0.1774 0.121878    
+## S         0.86667 -0.49888 0.0044 0.962038    
+## Al       -0.64541 -0.76384 0.3168 0.017982 *  
+## Fe       -0.56956 -0.82195 0.3536 0.018981 *  
+## Mn        0.96802 -0.25088 0.0730 0.439560    
+## Zn        0.96899  0.24711 0.0321 0.712288    
+## Mo       -0.99233 -0.12362 0.0630 0.491508    
+## Baresoil  0.51078  0.85971 0.5280 0.000999 ***
+## Humdepth  0.81116  0.58483 0.2937 0.026973 *  
+## pH       -0.34311 -0.93929 0.0881 0.333666    
+## ---
+## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+## Permutation: free
+## Number of permutations: 1000
+```
+]
+]
+
+---
+
+# Vector fitting
+
+.row[
+.col-6[
+Values in `PC1` etc are *direction cosines* for vectors of unit length
+
+`r2` is the squared correlation, `\(R^2\)`, between `\(\boldsymbol{y}\)` and projection of axis scores on to the vector
+
+For factors is `\(R^2 = 1 - \mathsf{SS_{W}} / \mathsf{SS_{T}}\)`
+
+Permutation test shuffles the `\(\boldsymbol{y}\)` to generate distribution of `\(R^2\)` under H&lt;sub&gt;0&lt;/sub&gt;
+]
+
+.col-6[
+
+```
+## 
+## ***VECTORS
+## 
+##               PC1      PC2     r2   Pr(&gt;r)    
+## N        -0.80597 -0.59196 0.0384 0.676324    
+## P         0.78221 -0.62301 0.0335 0.696304    
+## K         0.94909 -0.31501 0.0394 0.638362    
+## Ca        0.87606  0.48220 0.1607 0.153846    
+## Mg        0.83079  0.55658 0.1774 0.121878    
+## S         0.86667 -0.49888 0.0044 0.962038    
+## Al       -0.64541 -0.76384 0.3168 0.017982 *  
+## Fe       -0.56956 -0.82195 0.3536 0.018981 *  
+## Mn        0.96802 -0.25088 0.0730 0.439560    
+## Zn        0.96899  0.24711 0.0321 0.712288    
+## Mo       -0.99233 -0.12362 0.0630 0.491508    
+## Baresoil  0.51078  0.85971 0.5280 0.000999 ***
+## Humdepth  0.81116  0.58483 0.2937 0.026973 *  
+## pH       -0.34311 -0.93929 0.0881 0.333666    
+## ---
+## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+## Permutation: free
+## Number of permutations: 1000
+```
+]
+]
+
+---
+
+# Vector fitting
+
+.row[
+.col-6[
+
+```r
+plot(ev, add = FALSE) # oops bug!
+```
+]
+
+.col-6[
+![](intro-to-vegan_files/figure-html/plot-envfit-1-1.svg)&lt;!-- --&gt;
+]
+]
+
+---
+
+# Vector fitting
+
+.row[
+.col-6[
+
+```r
+plot(pca, display = "sites", type = "n",
+     scaling = "symmetric")
+points(pca, display = "sites",
+       scaling = "symmetric")
+plot(ev, add = TRUE)
+```
+]
+
+.col-6[
+![](intro-to-vegan_files/figure-html/plot-envfit-2-1.svg)&lt;!-- --&gt;
+]
+]
+
+---
+
+# Smooth surfaces
+
+`envfit()` fitted vectors, linear planes, to ordinations.
+
+`ordisurf()` fits smooth surfaces using a GAM via package **mgcv**
+
+`$$\hat{y_i} = f(x_{1i}, x_{2i})$$`
+
+where `\(f()\)` is a *bivariate* smooth function of a pair of axis scores `\(x_{1i}\)` and `\(x_{2i}\)`
+
+`ordisurf()` exposes a lot of functionality from `mgcv::gam()` and the smooths it can fit
+
+---
+
+## Smooth surfaces
+
+Fitting a 10 basis function isotropic surface
+
+.row[
+.col-6[
+
+
+```r
+surf &lt;- ordisurf(pca ~ Ca,
+                 data = varechem,
+                 knots = 10,
+                 isotropic = TRUE,
+                 main = NULL)
+```
+
+`ordisurf()` plots by default
+
+`surf` contains the fitted `gam()` model
+]
+
+.col-6[
+![](intro-to-vegan_files/figure-html/ordisurf-1-1.svg)&lt;!-- --&gt;
+]
+]
+
+---
+
+# Smooth surfaces
+
+
+```r
+summary(surf)
+```
+
+```
+## 
+## Family: gaussian 
+## Link function: identity 
+## 
+## Formula:
+## y ~ s(x1, x2, k = 10, bs = "tp", fx = FALSE)
+## 
+## Parametric coefficients:
+##             Estimate Std. Error t value Pr(&gt;|t|)    
+## (Intercept)   569.66      40.27   14.14 1.05e-11 ***
+## ---
+## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+## 
+## Approximate significance of smooth terms:
+##            edf Ref.df    F p-value  
+## s(x1,x2) 3.517      9 1.34  0.0176 *
+## ---
+## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+## 
+## R-sq.(adj) =  0.344   Deviance explained = 44.4%
+## -REML = 158.56  Scale est. = 38924     n = 24
+```
+
+---
+class: inverse middle center big-subsection
+
+# plotting
+
+---
+
+# Better plotting
+
+Ordination diagrams are often messy &amp;mdash; `plot()` methods designed to get a quick plot of results
+
+To produce better plots you need to know some base graphics skills *and* make use of some *vegan* helpers
+
+---
+
+# Points and labels
+
+`ordipointlabel()` can draw points and labels
+
+.row[
+.col-6[
+
+
+```r
+set.seed(10)
+ordipointlabel(pca,
+               display = "sites",
+               scaling = "symmetric")
+```
+
+Iteratively finds space to draw labels so they don't overplot
+
+]
+.col-6[
+![](intro-to-vegan_files/figure-html/ordipointlabel-1-1.svg)&lt;!-- --&gt;
+]
+]
+
+---
+
+# Points and labels
+
+`ordipointlabel()` can also add to an existing plot
+
+.row[
+.col-6[
+
+
+```r
+plot(pca, display = "sites",
+     scaling = "symmetric", type = "n")
+points(pca, display = "sites",
+       scaling = "symmetric", pch = 19,
+       col = "#025196")
+set.seed(10)
+ordipointlabel(pca,
+               display = "sites",
+               scaling = "symmetric",
+               add = TRUE)
+```
+
+]
+.col-6[
+![](intro-to-vegan_files/figure-html/ordipointlabel-2-1.svg)&lt;!-- --&gt;
+]
+]
+
+---
+
+# Points and labels
+
+`ordipointlabel()` can also add to an existing plot
+
+.row[
+.col-6[
+
+
+```r
+disp &lt;- "species"
+scl &lt;- "symmetric"
+plot(pca, display = disp,
+     scaling = scl, type = "n")
+points(pca, display = disp,
+       scaling = scl, pch = 19,
+       col = "#025196")
+set.seed(10)
+ordipointlabel(pca,
+               display = disp,
+               scaling = scl,
+               add = TRUE)
+```
+
+]
+.col-6[
+![](intro-to-vegan_files/figure-html/ordipointlabel-3-1.svg)&lt;!-- --&gt;
+]
+]
+
+---
+
+# Points and labels
+
+How successful `ordipointlabel()` is depends on how much you plot &amp; how big you plot it
+
+.row[
+.col-6[
+
+
+```r
+disp &lt;- c("sites", "species")
+scl &lt;- "symmetric"
+plot(pca, display = disp,
+     scaling = scl, type = "n")
+points(pca, display = disp[1],
+       scaling = scl, pch = 19,
+       col = "#025196")
+points(pca, display = disp[2],
+       scaling = scl, pch = 19,
+       col = "#fdb338")
+set.seed(10)
+ordipointlabel(pca,
+               display = disp,
+               scaling = scl,
+               add = TRUE,
+               col = c(1,1), cex = c(0.7, 0.7))
+```
+
+]
+.col-6[
+![](intro-to-vegan_files/figure-html/ordipointlabel-4-1.svg)&lt;!-- --&gt;
+]
+]
+
+---
+
+# Building up by layers
+
+With base graphics you are in control of *everything*
+
+.row[
+.col-6[
+
+
+```r
+data(dune, dune.env)
+col_vec &lt;- c("red", "blue", "orange", "grey")
+disp &lt;- "sites"
+scl &lt;- "symmetric"
+
+ord &lt;- rda(decostand(dune, method="hellinger"))
+
+plot(ord, type = "n", scaling = scl,
+     display = disp)
+cols &lt;- with(dune.env, col_vec[Management])
+points(ord, display = disp, scaling = scl,
+       pch = 19, col = cols, cex = 2)
+lvl &lt;- with(dune.env, levels(Management))
+legend("topright", legend = lvl,
+       bty = "n", col = col_vec, pch = 19)
+```
+
+]
+.col-6[
+![](intro-to-vegan_files/figure-html/layer-plot-1-1.svg)&lt;!-- --&gt;
+]
+]
+
+---
+
+# Other utilities &amp;mdash; `ordihull()`
+
+Convex hulls around groups of data
+
+.row[
+.col-6[
+
+
+```r
+disp &lt;- "sites"
+scl &lt;- "symmetric"
+
+plot(ord, type = "n", scaling = scl,
+     display = disp)
+ordihull(ord, groups = dune.env$Management,
+         col = col_vec,
+         scaling = scl, lwd = 2)
+ordispider(ord, groups = dune.env$Management,
+           col = col_vec,
+           scaling = scl, label = TRUE)
+points(ord, display = disp, scaling = scl,
+       pch = 21, col = "red", bg = "yellow")
+```
+
+]
+.col-6[
+![](intro-to-vegan_files/figure-html/hull-1-1.svg)&lt;!-- --&gt;
+]
+]
+
+---
+
+# Other utilities &amp;mdash; `ordiellipse()`
+
+Draws ellipsoid hulls &amp; standard error &amp; deviation ellipses
+
+.row[
+.col-6[
+
+
+```r
+disp &lt;- "sites"
+scl &lt;- "symmetric"
+
+plot(ord, type = "n", scaling = scl,
+     display = disp)
+## ellipsoid hull
+ordiellipse(ord, groups = dune.env$Management,
+            kind = "ehull", col = col_vec,
+            scaling = scl, lwd = 2)
+## standard error of centroid  ellipse
+ordiellipse(ord, groups = dune.env$Management,
+            draw = "polygon", col = col_vec,
+            scaling = scl, lwd = 2)
+ordispider(ord, groups = dune.env$Management,
+           col = col_vec,
+           scaling = scl, label = TRUE)
+points(ord, display = disp, scaling = scl,
+       pch = 21, col = "red", bg = "yellow")
+```
+
+]
+.col-6[
+![](intro-to-vegan_files/figure-html/ellipse-1-1.svg)&lt;!-- --&gt;
+]
+]
+
+---
+
+# Any love for *ggplot*?
+
+The **ggvegan** package is in development
+
+.row[
+.col-6[
+
+```r
+## library('remotes')
+## install_github("gavinsimpson/ggvegan")
+library('ggvegan')
+library('ggplot2')
+
+autoplot(ord)
+```
+]
+
+.col-6[
+![](intro-to-vegan_files/figure-html/ggvegan-1.svg)&lt;!-- --&gt;
+]
+]
+
+---
+
+# Any love for *ggplot*?
+
+The **ggvegan** package is in development
+
+.row[
+.col-6[
+
+```r
+ford &lt;- fortify(ord, axes = 1:2)
+## not yet a tibble
+head(ford, 4)
+```
+
+```
+##     Score    Label         PC1         PC2
+## 1 species Achimill -0.22413552  0.05704791
+## 2 species Agrostol  0.41424457 -0.18006829
+## 3 species Airaprae -0.03506944  0.15464367
+## 4 species Alopgeni  0.13865500 -0.31844362
+```
+
+```r
+blue &lt;- "#025196"
+filter(ford, Score == "sites") %&gt;%
+    ggplot(aes(x = PC1, y = PC2)) +
+    geom_hline(yintercept = 0, colour = blue) +
+    geom_vline(xintercept = 0, colour = blue) +
+    geom_point() +
+    coord_fixed()
+```
+]
+
+.col-6[
+![](intro-to-vegan_files/figure-html/ggvegan-2-1.svg)&lt;!-- --&gt;
+]
+]
+
+---
+
+# Acknowledgments
+
+### Funding
+
+.row[
+
+.col-6[
+.center[![:scale 70%](./resources/NSERC_C.svg)]
+]
+
+.col-6[
+.center[![:scale 70%](./resources/fgsr-logo.jpg)]
+]
+
+]
+
+### Data
+
+* 
+* 
+
+### Slides
+
+* HTML Slide deck [bit.ly/nyr-gam](http://bit.ly/nyr-gam) &amp;copy; Simpson (2020) [![Creative Commons Licence](https://i.creativecommons.org/l/by/4.0/88x31.png)](http://creativecommons.org/licenses/by/4.0/)
+* RMarkdown [Source](https://github.com/gavinsimpson/fromthebottomoftheheap/tree/master/slides/new-york-r-2020)
+    </textarea>
+<style data-target="print-only">@media screen {.remark-slide-container{display:block;}.remark-slide-scaler{box-shadow:none;}}</style>
+<script src="https://remarkjs.com/downloads/remark-latest.min.js"></script>
+<script src="macros.js"></script>
+<script>var slideshow = remark.create({
+"highlightStyle": "github",
+"highlightLines": true,
+"countIncrementalSlides": false,
+"ratio": "16:9"
+});
+if (window.HTMLWidgets) slideshow.on('afterShowSlide', function (slide) {
+  window.dispatchEvent(new Event('resize'));
+});
+(function(d) {
+  var s = d.createElement("style"), r = d.querySelector(".remark-slide-scaler");
+  if (!r) return;
+  s.type = "text/css"; s.innerHTML = "@page {size: " + r.style.width + " " + r.style.height +"; }";
+  d.head.appendChild(s);
+})(document);
+
+(function(d) {
+  var el = d.getElementsByClassName("remark-slides-area");
+  if (!el) return;
+  var slide, slides = slideshow.getSlides(), els = el[0].children;
+  for (var i = 1; i < slides.length; i++) {
+    slide = slides[i];
+    if (slide.properties.continued === "true" || slide.properties.count === "false") {
+      els[i - 1].className += ' has-continuation';
+    }
+  }
+  var s = d.createElement("style");
+  s.type = "text/css"; s.innerHTML = "@media print { .has-continuation { display: none; } }";
+  d.head.appendChild(s);
+})(document);
+// delete the temporary CSS (for displaying all slides initially) when the user
+// starts to view slides
+(function() {
+  var deleted = false;
+  slideshow.on('beforeShowSlide', function(slide) {
+    if (deleted) return;
+    var sheets = document.styleSheets, node;
+    for (var i = 0; i < sheets.length; i++) {
+      node = sheets[i].ownerNode;
+      if (node.dataset["target"] !== "print-only") continue;
+      node.parentNode.removeChild(node);
+    }
+    deleted = true;
+  });
+})();
+(function() {
+  "use strict"
+  // Replace <script> tags in slides area to make them executable
+  var scripts = document.querySelectorAll(
+    '.remark-slides-area .remark-slide-container script'
+  );
+  if (!scripts.length) return;
+  for (var i = 0; i < scripts.length; i++) {
+    var s = document.createElement('script');
+    var code = document.createTextNode(scripts[i].textContent);
+    s.appendChild(code);
+    var scriptAttrs = scripts[i].attributes;
+    for (var j = 0; j < scriptAttrs.length; j++) {
+      s.setAttribute(scriptAttrs[j].name, scriptAttrs[j].value);
+    }
+    scripts[i].parentElement.replaceChild(s, scripts[i]);
+  }
+})();
+(function() {
+  var links = document.getElementsByTagName('a');
+  for (var i = 0; i < links.length; i++) {
+    if (/^(https?:)?\/\//.test(links[i].getAttribute('href'))) {
+      links[i].target = '_blank';
+    }
+  }
+})();
+// adds .remark-code-has-line-highlighted class to <pre> parent elements
+// of code chunks containing highlighted lines with class .remark-code-line-highlighted
+(function(d) {
+  const hlines = d.querySelectorAll('.remark-code-line-highlighted');
+  const preParents = [];
+  const findPreParent = function(line, p = 0) {
+    if (p > 1) return null; // traverse up no further than grandparent
+    const el = line.parentElement;
+    return el.tagName === "PRE" ? el : findPreParent(el, ++p);
+  };
+
+  for (let line of hlines) {
+    let pre = findPreParent(line);
+    if (pre && !preParents.includes(pre)) preParents.push(pre);
+  }
+  preParents.forEach(p => p.classList.add("remark-code-has-line-highlighted"));
+})(document);</script>
+
+<script>
+slideshow._releaseMath = function(el) {
+  var i, text, code, codes = el.getElementsByTagName('code');
+  for (i = 0; i < codes.length;) {
+    code = codes[i];
+    if (code.parentNode.tagName !== 'PRE' && code.childElementCount === 0) {
+      text = code.textContent;
+      if (/^\\\((.|\s)+\\\)$/.test(text) || /^\\\[(.|\s)+\\\]$/.test(text) ||
+          /^\$\$(.|\s)+\$\$$/.test(text) ||
+          /^\\begin\{([^}]+)\}(.|\s)+\\end\{[^}]+\}$/.test(text)) {
+        code.outerHTML = code.innerHTML;  // remove <code></code>
+        continue;
+      }
+    }
+    i++;
+  }
+};
+slideshow._releaseMath(document);
+</script>
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+(function () {
+  var script = document.createElement('script');
+  script.type = 'text/javascript';
+  script.src  = 'https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-MML-AM_CHTML';
+  if (location.protocol !== 'file:' && /^https?:/.test(script.src))
+    script.src  = script.src.replace(/^https?:/, '');
+  document.getElementsByTagName('head')[0].appendChild(script);
+})();
+</script>
+  </body>
+</html>
