@@ -1603,26 +1603,28 @@ filter(ford, Score == "sites") %>%
 
 # Acknowledgments
 
-### Funding
-
 .row[
 
 .col-6[
+
+### Funding
+
 .center[![:scale 70%](./resources/NSERC_C.svg)]
 ]
 
 .col-6[
-.center[![:scale 70%](./resources/fgsr-logo.jpg)]
-]
+
+### Fellow vegan maintainers
+
+Jari Oksanen
+
+P&eacute;ter S&oacute;lymos
 
 ]
 
-### Data
-
-* 
-* 
+]
 
 ### Slides
 
-* HTML Slide deck [bit.ly/nyr-gam](http://bit.ly/nyr-gam) &copy; Simpson (2020) [![Creative Commons Licence](https://i.creativecommons.org/l/by/4.0/88x31.png)](http://creativecommons.org/licenses/by/4.0/)
-* RMarkdown [Source](https://github.com/gavinsimpson/fromthebottomoftheheap/tree/master/slides/new-york-r-2020)
+* HTML Slide deck [bit.ly/rvegan-webinar](https://bit.ly/rvegan-webinar) &copy; Simpson (2020) [![Creative Commons Licence](https://i.creativecommons.org/l/by/4.0/88x31.png)](http://creativecommons.org/licenses/by/4.0/)
+* RMarkdown [Source](https://github.com/gavinsimpson/intro-vegan-webinar-july-2020)
