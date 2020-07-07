@@ -4,6 +4,17 @@ Get started using the vegan package for R for multivariate data analysis and com
 
 ## July 7th, 2020 @ 1000-1200 CST (1600-1800 UTC)
 
+**Livestream**: [youtu.be/tVnnG7mFeqA](https://youtu.be/tVnnG7mFeqA)
+
+**Recording**: *Coming Soon*
+
+## Links
+
+* Slidedeck: [bit.ly/rvegan-webinar](https://bit.ly/rvegan-webinar)
+* Q & A: [bit.ly/rvegan-webinar-qa](https://bit.ly/rvegan-webinar-qa)
+
+## Description
+
 For community ecologists using R, one of the most-used, and most-useful, add-on packages is vegan, which provides a wide range of functionality covering inter alia ordination, diversity analysis, and ecological simulation. This webinar will offer participants a practical introduction to some of the most useful functions available within vegan. In particular, the webinar will cover the unconstrained ordination methods
 
 * Principal Components Analysis,
