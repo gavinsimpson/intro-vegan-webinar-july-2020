@@ -4,9 +4,7 @@ Get started using the vegan package for R for multivariate data analysis and com
 
 ## July 7th, 2020 @ 1000-1200 CST (1600-1800 UTC)
 
-**Livestream**: [youtu.be/tVnnG7mFeqA](https://youtu.be/tVnnG7mFeqA)
-
-**Recording**: *Coming Soon*
+**Recording**: [youtu.be/tVnnG7mFeqA](https://youtu.be/tVnnG7mFeqA)
 
 ## Links
 
